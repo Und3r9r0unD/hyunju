@@ -121,6 +121,33 @@
   .level-btn:disabled { opacity: 0.6; cursor: wait; }
   .level-title { font-size: 1.08rem; font-weight: 800; color: var(--text); margin-bottom: 4px; }
   .level-desc { font-size: 0.84rem; color: var(--muted); }
+  .level-tree-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: -4px;
+  }
+  .level-sub-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 13px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: #334155;
+    cursor: pointer;
+    font-family: inherit;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
+  }
+  .level-sub-btn:hover:not(:disabled) {
+    border-color: var(--primary);
+    background: var(--primary-soft);
+    color: var(--primary);
+  }
+  .level-sub-btn:disabled { opacity: 0.6; cursor: wait; }
+  .tree-branch { color: var(--muted); font-weight: 400; }
   .lock-link {
     margin-top: 16px;
     background: none;
@@ -416,6 +443,12 @@
         <div class="level-title">📙 재경관리사</div>
         <div class="level-desc">재무 · 세무 · 원가관리회계 (총 720문항 · 해설 포함)</div>
       </button>
+      <div class="level-tree-row">
+        <button class="level-sub-btn" id="pick-jk-notes" type="button">
+          <span class="tree-branch">└</span>
+          <span>📝 재경관리사 핵심암기노트 (이론 161 · 계산 51)</span>
+        </button>
+      </div>
     </div>
     <div id="select-err" class="err-msg"></div>
     <button id="btn-lock" class="lock-link" type="button">로그아웃 (암호 잠금)</button>
@@ -485,6 +518,65 @@
   <div class="progress-wrap"><div class="progress-fill" id="progress-fill"></div></div>
   <main id="quiz-area" class="quiz-card"></main>
   <div class="kbd-hint">단축키: <b>O</b> / <b>←</b> = O &nbsp;|&nbsp; <b>X</b> / <b>→</b> = X &nbsp;|&nbsp; <b>Space</b> / <b>Enter</b> = 다음 문제</div>
+</div>
+
+<!-- 4. Notes App -->
+<div id="screen-notes" class="container hidden">
+  <header>
+    <div class="header-left">
+      <button id="btn-back-notes" class="back-btn" type="button">← 시험 선택</button>
+      <div>
+        <h1>재경관리사 핵심암기노트</h1>
+        <div class="subtitle">2회 이상 반복 출제된 핵심 이론(161) · 계산(51)</div>
+      </div>
+    </div>
+    <button class="back-btn" onclick="window.print()" type="button">🖨️ 인쇄 / PDF</button>
+  </header>
+
+  <section class="controls">
+    <div class="ctrl-group">
+      <label for="notes-search">키워드 검색</label>
+      <input id="notes-search" type="search" placeholder="예: 이연법인세, IRR" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);font-size:0.88rem;font-family:inherit;" />
+    </div>
+    <div class="ctrl-group">
+      <label for="notes-subj">과목</label>
+      <select id="notes-subj">
+        <option value="ALL">전체 과목</option>
+        <option value="재무회계">재무회계</option>
+        <option value="세무회계">세무회계</option>
+        <option value="원가관리회계">원가관리회계</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label for="notes-ox">O / X 구분</label>
+      <select id="notes-ox">
+        <option value="ALL">O / X 전체</option>
+        <option value="O">O (옳은 지문만)</option>
+        <option value="X">X (함정·오답 지문만)</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label for="notes-freq">출제 빈도</label>
+      <select id="notes-freq">
+        <option value="2">2회 이상 출제</option>
+        <option value="3">3회 이상 초빈출</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label for="notes-mem">암기 여부</label>
+      <select id="notes-mem">
+        <option value="ALL">전체 보기</option>
+        <option value="TODO">미암기만</option>
+      </select>
+    </div>
+  </section>
+
+  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+    <button class="back-btn" id="notes-tab-stmt" type="button" style="background:var(--primary);color:#fff;border-color:var(--primary);">📌 핵심 이론 O·X (161)</button>
+    <button class="back-btn" id="notes-tab-calc" type="button">🧮 핵심 계산·사례 (51)</button>
+  </div>
+  <div id="notes-count" class="subtitle" style="margin-bottom:10px;"></div>
+  <main id="notes-list"></main>
 </div>
 
 <script>
@@ -582,6 +674,7 @@ function showScreen(name) {
   document.getElementById("screen-login").classList.toggle("hidden", name !== "login");
   document.getElementById("screen-select").classList.toggle("hidden", name !== "select");
   document.getElementById("screen-quiz").classList.toggle("hidden", name !== "quiz");
+  document.getElementById("screen-notes").classList.toggle("hidden", name !== "notes");
 }
 
 async function tryUnlock(password, remember) {
@@ -684,7 +777,136 @@ async function startLevel(lvl) {
 document.getElementById("pick-l1").onclick = () => startLevel("l1");
 document.getElementById("pick-l2").onclick = () => startLevel("l2");
 document.getElementById("pick-jk").onclick = () => startLevel("jk");
+document.getElementById("pick-jk-notes").onclick = openJkNotes;
 document.getElementById("btn-back-level").onclick = () => showScreen("select");
+document.getElementById("btn-back-notes").onclick = () => showScreen("select");
+
+let notesTab = "stmt";
+let notesMemSet = new Set();
+try {
+  const rawMem = localStorage.getItem("jk_notes_memorized_v1");
+  if (rawMem) notesMemSet = new Set(JSON.parse(rawMem));
+} catch (e) {}
+
+async function openJkNotes() {
+  const errEl = document.getElementById("select-err");
+  const btns = document.querySelectorAll(".level-btn, .level-sub-btn");
+  errEl.textContent = "";
+  if (!DATA_CACHE.jk_notes) {
+    btns.forEach(b => b.disabled = true);
+    try {
+      DATA_CACHE.jk_notes = await fetchAndDecrypt("data/jk_notes.enc", activePassword);
+    } catch (e) {
+      errEl.textContent = e.message || "암기노트를 불러오지 못했습니다.";
+      btns.forEach(b => b.disabled = false);
+      return;
+    }
+    btns.forEach(b => b.disabled = false);
+  }
+  showScreen("notes");
+  renderNotes();
+}
+
+function renderNotes() {
+  const data = DATA_CACHE.jk_notes;
+  if (!data) return;
+  const q = document.getElementById("notes-search").value.trim().toLowerCase();
+  const subj = document.getElementById("notes-subj").value;
+  const ox = document.getElementById("notes-ox").value;
+  const minFreq = parseInt(document.getElementById("notes-freq").value, 10);
+  const memFilter = document.getElementById("notes-mem").value;
+  document.getElementById("notes-ox").disabled = (notesTab === "calc");
+
+  const src = notesTab === "stmt" ? data.stmts : data.calcs;
+  const filtered = src.filter(it => {
+    if (subj !== "ALL" && it.subject !== subj) return false;
+    if (it.count < minFreq) return false;
+    if (memFilter === "TODO" && notesMemSet.has(it.id)) return false;
+    if (notesTab === "stmt" && ox !== "ALL") {
+      if (ox === "O" && !it.isTrue) return false;
+      if (ox === "X" && it.isTrue) return false;
+    }
+    if (q) {
+      const hay = (notesTab === "stmt"
+        ? `${it.topic} ${it.text} ${it.exp}`
+        : `${it.stem} ${it.answerText} ${it.exp}`).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const doneCnt = src.filter(x => notesMemSet.has(x.id)).length;
+  document.getElementById("notes-count").textContent = `표시 중: ${filtered.length}개 (암기 완료 ${doneCnt}/${src.length}개)`;
+
+  const listEl = document.getElementById("notes-list");
+  if (!filtered.length) {
+    listEl.innerHTML = `<div class="quiz-card" style="text-align:center;color:var(--muted);">조건에 해당하는 항목이 없습니다.</div>`;
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(it => {
+    const done = notesMemSet.has(it.id);
+    if (notesTab === "stmt") {
+      return `
+        <article class="quiz-card" style="margin-bottom:12px;padding:16px 18px;${done ? "opacity:0.55;" : ""}">
+          <div class="card-top" style="margin-bottom:8px;">
+            <div class="badges">
+              <span class="badge freq">🔥 ${it.count}회 (${it.months.join("·")})</span>
+              <span class="badge subj">${it.subject}</span>
+              <span class="badge" style="${it.isTrue ? "background:var(--o-soft);color:var(--o-color);" : "background:var(--x-soft);color:var(--x-color);"}">${it.isTrue ? "O (옳은 지문)" : "X (함정)"}</span>
+              <span class="badge mode">${escapeHtml(it.topic)}</span>
+            </div>
+            <button class="bookmark-btn ${done ? "active" : ""}" data-nid="${it.id}" type="button">${done ? "✓ 암기완료" : "암기체크"}</button>
+          </div>
+          <div style="font-size:1.02rem;font-weight:700;margin-bottom:8px;word-break:keep-all;">${escapeHtml(it.text)}</div>
+          <div class="exp-box" style="margin-top:0;"><b>💡 해설:</b> ${escapeHtml(it.exp)}</div>
+        </article>
+      `;
+    }
+    return `
+      <article class="quiz-card" style="margin-bottom:12px;padding:16px 18px;${done ? "opacity:0.55;" : ""}">
+        <div class="card-top" style="margin-bottom:8px;">
+          <div class="badges">
+            <span class="badge freq">🔥 ${it.count}회 (${it.months.join("·")})</span>
+            <span class="badge subj">${it.subject}</span>
+            <span class="badge mode">${it.ref} 기준</span>
+          </div>
+          <button class="bookmark-btn ${done ? "active" : ""}" data-nid="${it.id}" type="button">${done ? "✓ 암기완료" : "암기체크"}</button>
+        </div>
+        <div style="font-size:0.92rem;color:#334155;margin-bottom:8px;white-space:pre-line;">${escapeHtml(it.stem)}</div>
+        <div class="candidate-label">정답 예시: ${escapeHtml(it.answerText)}</div>
+        <div class="exp-box" style="margin-top:4px;"><b>💡 핵심 풀이:</b> ${escapeHtml(it.exp)}</div>
+      </article>
+    `;
+  }).join("");
+
+  listEl.querySelectorAll("[data-nid]").forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.getAttribute("data-nid");
+      if (notesMemSet.has(id)) notesMemSet.delete(id);
+      else notesMemSet.add(id);
+      try { localStorage.setItem("jk_notes_memorized_v1", JSON.stringify([...notesMemSet])); } catch (e) {}
+      renderNotes();
+    };
+  });
+}
+
+document.getElementById("notes-tab-stmt").onclick = () => {
+  notesTab = "stmt";
+  document.getElementById("notes-tab-stmt").style.cssText = "background:var(--primary);color:#fff;border-color:var(--primary);";
+  document.getElementById("notes-tab-calc").style.cssText = "";
+  renderNotes();
+};
+document.getElementById("notes-tab-calc").onclick = () => {
+  notesTab = "calc";
+  document.getElementById("notes-tab-calc").style.cssText = "background:var(--primary);color:#fff;border-color:var(--primary);";
+  document.getElementById("notes-tab-stmt").style.cssText = "";
+  renderNotes();
+};
+["notes-search", "notes-subj", "notes-ox", "notes-freq", "notes-mem"].forEach(id => {
+  document.getElementById(id).addEventListener("input", renderNotes);
+  document.getElementById(id).addEventListener("change", renderNotes);
+});
 
 function escapeHtml(str) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
