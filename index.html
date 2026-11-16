@@ -435,10 +435,22 @@
         <div class="level-title">📘 회계관리 1급</div>
         <div class="level-desc">재무회계 · 세무회계 (총 480문항 · 해설 포함)</div>
       </button>
+      <div class="level-tree-row">
+        <button class="level-sub-btn" id="pick-l1-notes" type="button">
+          <span class="tree-branch">└</span>
+          <span>📝 회계관리 1급 핵심암기노트 (이론 87 · 계산 35)</span>
+        </button>
+      </div>
       <button class="level-btn" id="pick-l2" type="button">
         <div class="level-title">📗 회계관리 2급</div>
         <div class="level-desc">회계원리 (총 240문항 · 해설 포함)</div>
       </button>
+      <div class="level-tree-row">
+        <button class="level-sub-btn" id="pick-l2-notes" type="button">
+          <span class="tree-branch">└</span>
+          <span>📝 회계관리 2급 핵심암기노트 (이론 12 · 계산 17)</span>
+        </button>
+      </div>
       <button class="level-btn" id="pick-jk" type="button">
         <div class="level-title">📙 재경관리사</div>
         <div class="level-desc">재무 · 세무 · 원가관리회계 (총 720문항 · 해설 포함)</div>
@@ -526,8 +538,8 @@
     <div class="header-left">
       <button id="btn-back-notes" class="back-btn" type="button">← 시험 선택</button>
       <div>
-        <h1>재경관리사 핵심암기노트</h1>
-        <div class="subtitle">2회 이상 반복 출제된 핵심 이론(161) · 계산(51)</div>
+        <h1 id="notes-title">핵심암기노트</h1>
+        <div id="notes-subtitle" class="subtitle"></div>
       </div>
     </div>
     <button class="back-btn" onclick="window.print()" type="button">🖨️ 인쇄 / PDF</button>
@@ -777,25 +789,39 @@ async function startLevel(lvl) {
 document.getElementById("pick-l1").onclick = () => startLevel("l1");
 document.getElementById("pick-l2").onclick = () => startLevel("l2");
 document.getElementById("pick-jk").onclick = () => startLevel("jk");
-document.getElementById("pick-jk-notes").onclick = openJkNotes;
+document.getElementById("pick-l1-notes").onclick = () => openNotes("l1");
+document.getElementById("pick-l2-notes").onclick = () => openNotes("l2");
+document.getElementById("pick-jk-notes").onclick = () => openNotes("jk");
 document.getElementById("btn-back-level").onclick = () => showScreen("select");
 document.getElementById("btn-back-notes").onclick = () => showScreen("select");
 
+const NOTES_META = {
+  l1: { file: "data/l1_notes.enc", title: "회계관리 1급 핵심암기노트", memKey: "l1_notes_memorized_v1" },
+  l2: { file: "data/l2_notes.enc", title: "회계관리 2급 핵심암기노트", memKey: "l2_notes_memorized_v1" },
+  jk: { file: "data/jk_notes.enc", title: "재경관리사 핵심암기노트", memKey: "jk_notes_memorized_v1" },
+};
+let currentNotesLvl = "jk";
 let notesTab = "stmt";
 let notesMemSet = new Set();
-try {
-  const rawMem = localStorage.getItem("jk_notes_memorized_v1");
-  if (rawMem) notesMemSet = new Set(JSON.parse(rawMem));
-} catch (e) {}
 
-async function openJkNotes() {
+function loadNotesMem() {
+  notesMemSet = new Set();
+  try {
+    const rawMem = localStorage.getItem(NOTES_META[currentNotesLvl].memKey);
+    if (rawMem) notesMemSet = new Set(JSON.parse(rawMem));
+  } catch (e) {}
+}
+
+async function openNotes(lvl) {
+  const meta = NOTES_META[lvl];
+  const cacheKey = `${lvl}_notes`;
   const errEl = document.getElementById("select-err");
   const btns = document.querySelectorAll(".level-btn, .level-sub-btn");
   errEl.textContent = "";
-  if (!DATA_CACHE.jk_notes) {
+  if (!DATA_CACHE[cacheKey]) {
     btns.forEach(b => b.disabled = true);
     try {
-      DATA_CACHE.jk_notes = await fetchAndDecrypt("data/jk_notes.enc", activePassword);
+      DATA_CACHE[cacheKey] = await fetchAndDecrypt(meta.file, activePassword);
     } catch (e) {
       errEl.textContent = e.message || "암기노트를 불러오지 못했습니다.";
       btns.forEach(b => b.disabled = false);
@@ -803,12 +829,36 @@ async function openJkNotes() {
     }
     btns.forEach(b => b.disabled = false);
   }
+  currentNotesLvl = lvl;
+  loadNotesMem();
+  const data = DATA_CACHE[cacheKey];
+  document.getElementById("notes-title").textContent = meta.title;
+  document.getElementById("notes-subtitle").textContent = `2회 이상 반복 출제된 핵심 이론(${data.stmts.length}) · 계산(${data.calcs.length})`;
+  document.getElementById("notes-tab-stmt").textContent = `📌 핵심 이론 O·X (${data.stmts.length})`;
+  document.getElementById("notes-tab-calc").textContent = `🧮 핵심 계산·사례 (${data.calcs.length})`;
+
+  const selSubj = document.getElementById("notes-subj");
+  const subjList = EXAM_META[lvl].subjects;
+  if (subjList.length) {
+    selSubj.innerHTML = subjList.map(([v, l]) => `<option value="${v}">${l.replace(/\s*\(.*\)/, "")}</option>`).join("");
+  } else {
+    selSubj.innerHTML = '<option value="ALL">회계원리</option>';
+  }
+  selSubj.value = "ALL";
+  document.getElementById("notes-search").value = "";
+  document.getElementById("notes-ox").value = "ALL";
+  document.getElementById("notes-freq").value = "2";
+  document.getElementById("notes-mem").value = "ALL";
+
+  notesTab = "stmt";
+  document.getElementById("notes-tab-stmt").style.cssText = "background:var(--primary);color:#fff;border-color:var(--primary);";
+  document.getElementById("notes-tab-calc").style.cssText = "";
   showScreen("notes");
   renderNotes();
 }
 
 function renderNotes() {
-  const data = DATA_CACHE.jk_notes;
+  const data = DATA_CACHE[`${currentNotesLvl}_notes`];
   if (!data) return;
   const q = document.getElementById("notes-search").value.trim().toLowerCase();
   const subj = document.getElementById("notes-subj").value;
@@ -885,7 +935,7 @@ function renderNotes() {
       const id = btn.getAttribute("data-nid");
       if (notesMemSet.has(id)) notesMemSet.delete(id);
       else notesMemSet.add(id);
-      try { localStorage.setItem("jk_notes_memorized_v1", JSON.stringify([...notesMemSet])); } catch (e) {}
+      try { localStorage.setItem(NOTES_META[currentNotesLvl].memKey, JSON.stringify([...notesMemSet])); } catch (e) {}
       renderNotes();
     };
   });
